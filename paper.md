@@ -387,6 +387,8 @@ def compute_pid(pid,
     return pid_m, pid_n
 ```
 
+![How we perform this mapping for rank 0 with gridm=32 and grid_n=16](images/dependency_aware_remapping.png)
+
 **3. Register Usage Optimization for Heap Loading**
 - Reduce register pressure by using `tl.constexpr` instead of runtime tensor loads
 - Our basic version uses one tensor to store 8 heap addresses and `tl.load` to get destination rank heap address. This approach uses more registers than expected, spilling 10 registers for largest shapes
@@ -455,5 +457,4 @@ We extend our gratitude to the organizers and community members whose guidance a
 3. AMD. "ROCm Documentation." https://rocm.docs.amd.com/
 
 4. GPU Mode. "Reference Kernels - AMD Distributed." https://github.com/gpu-mode/reference-kernels/tree/main/problems/amd_distributed
-
 
