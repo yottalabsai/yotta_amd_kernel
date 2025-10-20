@@ -440,7 +440,7 @@ Through All-to-All, GEMM-ReduceScatter, and AllGather-GEMM optimizations, we dem
 
 ## Acknowledgments
 
-We thank **AMD** for organizing the GPU Optimization Challenge 2025 and providing access to MI300X hardware, which enabled us to explore and optimize distributed kernels on cutting-edge AMD accelerators. We also thank **GPUMode** and all organizers for making this competition possible.
+We thank **AMD** for organizing the GPU Optimization Challenge 2025 and **InnoMatrix.ai** providing access to AMD MI300X hardware, which enabled us to explore and optimize distributed kernels on cutting-edge AMD accelerators. We also thank **GPUMode** and all organizers for making this competition possible.
 
 We extend our gratitude to the organizers and community members whose guidance and support were essential to our success. For questions or suggestions, please reach out to the project authors.
 
