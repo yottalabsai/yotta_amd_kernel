@@ -2,11 +2,9 @@
 
 ## Authors
 
-**First Last**, Yotta Lab
+YottaLabs
 
-Email: john.smith@example.edu  
-
-ORCID: 0000-0000-0000-0001
+Email: contract@yottalabs.ai
 
 ---
 
