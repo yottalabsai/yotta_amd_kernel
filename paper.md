@@ -1,10 +1,6 @@
 # Optimizing Distributed Inference Kernels for AMD DEVELOPER CHALLENGE 2025: All-to-All, GEMM-ReduceScatter, and AllGather-GEMM
 
-## Authors
-
-YottaLabs
-
-Email: contact@yottalabs.ai
+YottaLabs.ai
 
 ---
 
