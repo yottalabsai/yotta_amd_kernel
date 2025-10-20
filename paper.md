@@ -4,7 +4,7 @@
 
 YottaLabs
 
-Email: contract@yottalabs.ai
+Email: contact@yottalabs.ai
 
 ---
 
