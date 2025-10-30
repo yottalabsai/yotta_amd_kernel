@@ -1,3 +1,9 @@
+"""
+Notes: 
+Only support the shapes that showed in the bench website now. 
+Other shapes will use a tunner like https://github.com/ROCm/tritonBLAS/blob/main/tools/tile_sweep.py to generate the best config. 
+The tunner is not included in this repo now.
+"""
 import os
 # 1019_121828 gen by commit: 58abcf
 import os
@@ -22,6 +28,7 @@ from triton.testing import do_bench
 OPEN_PERF = False
 time_tensors_bank = []
 time_tensor_save = []
+# iris replace the torch allocator to finegrained one and no cache. so a little slow in competition setups.
 os.system("sudo sed -i '66,82 s/^/#/' /usr/local/lib/python3.10/dist-packages/iris/__init__.py ")
 with open("/usr/local/lib/python3.10/dist-packages/iris/__init__.py", "r") as f:
     lines = f.readlines()
@@ -99,13 +106,13 @@ CUDA_MAIN_SRC = r"""// #include "ref10_first.hip"
 #include <sys/stat.h>
 #include <unistd.h> // for sleep()
 #ifdef __HIPCC__
-// AMD ROCm HIP 平台
+// AMD ROCm HIP
 #include <hip/hip_fp16.h>
 #include <hip/hip_runtime.h>
 #define uni(func) hip##func
 #define WARP_SYNC __builtin_amdgcn_wave_barrier();
 #elif defined(__CUDACC__)
-// NVIDIA CUDA 平台
+// NVIDIA CUDA 
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #define uni(func) cuda##func
@@ -116,28 +123,24 @@ CUDA_MAIN_SRC = r"""// #include "ref10_first.hip"
 bool isFileOlderThan_posix(const char *filePath, double seconds_threshold) {
   struct stat fileStat;
 
-  // 2. 调用 stat 获取文件信息
+  // 2. use stat to get file information
   if (stat(filePath, &fileStat) != 0) {
-    // 如果 stat 返回非0值，表示出错（如文件不存在）
     perror("stat error");
     return false;
   }
 
-  // 1. 获取当前时间
   time_t currentTime = time(nullptr);
 
-  // 3. 计算时间差
   double diff_seconds = difftime(currentTime, fileStat.st_mtime);
 
-  // 4. 比较差值
   if (diff_seconds > seconds_threshold) {
-    std::cout << "文件 '" << filePath << "' 的修改时间已超过 "
-              << seconds_threshold << " 秒. (实际差距: " << diff_seconds
+    std::cout << "file '" << filePath << "' has been modified for more than "
+              << seconds_threshold << " seconds. (actual difference: " << diff_seconds
               << "s)\n";
     return true;
   } else {
-    std::cout << "文件 '" << filePath << "' 的修改时间在 " << seconds_threshold
-              << " 秒内. (实际差距: " << diff_seconds << "s)\n";
+    std::cout << "file '" << filePath << "' has been modified for less than " << seconds_threshold
+              << " seconds. (actual difference: " << diff_seconds << "s)\n";
     return false;
   }
 }
@@ -255,13 +258,13 @@ CUDA_BARRIER = r"""// #define ZZ_DEBUG
 #define DEBUG_LOCAL_DISPATCH_START_END 0
 
 #ifdef __HIPCC__
-// AMD ROCm HIP 平台
+// AMD ROCm HIP
 #include <hip/hip_fp16.h>
 #include <hip/hip_runtime.h>
 #define uni(func) hip##func
 #define WARP_SYNC __builtin_amdgcn_wave_barrier();
 #elif defined(__CUDACC__)
-// NVIDIA CUDA 平台
+// NVIDIA CUDA
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #define uni(func) cuda##func
@@ -1374,12 +1377,12 @@ def _kernel1(
 
 def prune_configs_v21(config, nargs):
     """
-    这个 pre_hook 为每个 config 单独调用。
-    如果 config 有效，返回 True，否则返回 False。
+    this pre_hook is called for each config separately.
+    if config is valid, return True, otherwise return False.
     """
     M, N = nargs["M"]
     
-    # 检查条件
+    # check conditions
     if M % (8 * config.kwargs["BLOCK_M"]) != 0:
         return False
     
@@ -1765,46 +1768,46 @@ dist.destroy_process_group = patch_destroy_process_group
 
 import faulthandler
 faulthandler.enable(file=sys.stderr, all_threads=True)
-if __name__ == "__main__":
-    if os.environ.get("ZZ", ""):
-        M, N, K = 8192, 3696, 8192
-        config_local = online_config[(M, N, K)]
-        grid = (triton.cdiv(M, config_local["BLOCK_M"]) * triton.cdiv(N, config_local["BLOCK_N"]), 1, 1)
-        a = torch.empty((M, K), dtype=torch.bfloat16, device="cuda:0")
-        b = torch.empty((N, K), dtype=torch.bfloat16, device="cuda:0")
-        c = torch.empty((M, N), dtype=torch.bfloat16, device="cuda:0")
-        my_rank = 0
-        send_index = 0
-        heap_base_ptr = a.data_ptr()
-        time_tensor = torch.empty((grid[0] * grid[1] * 10000), dtype=torch.int64, device="cuda:0")
-        ret = triton_mm_kernel[grid](
-            A_ptr=a, 
-            A_index=a.data_ptr(), #TODO fix
-            heap_base_0=a.data_ptr(),
-            heap_base_1=a.data_ptr(),
-            heap_base_2=a.data_ptr(),
-            heap_base_3=a.data_ptr(),
-            heap_base_4=a.data_ptr(),
-            heap_base_5=a.data_ptr(),
-            heap_base_6=a.data_ptr(),
-            heap_base_7=a.data_ptr(),
-            my_rank_base=a.data_ptr(),
-            B_ptr=b, C_ptr=c, bias_ptr = None,
-            M=M, N=N, K=K,
-            my_rank = my_rank,
-            signal_index = send_index,
-            # heap_base_ptr = heap_base_ptr,
-            # BLOCK_M = config_local["BLOCK_M"],
-            # BLOCK_N = config_local["BLOCK_N"],
-            # BLOCK_K = config_local["BLOCK_K"],
-            time_tensor = time_tensor,
-            HAS_BIAS=False,
-            cache_modifier=".cg" if M * 8 == 64 else "",
-            **config_local
-        )
-        log(f"[RANK-{my_rank}] {M, N, K}  regs: {ret.n_regs} , spills: {ret.n_spills}")
-# import gc
-# gc.set_threshold(0, 0, 0)
-# gc.disable()
+# if __name__ == "__main__":
+#     if os.environ.get("ZZ", ""):
+#         M, N, K = 8192, 3696, 8192
+#         config_local = online_config[(M, N, K)]
+#         grid = (triton.cdiv(M, config_local["BLOCK_M"]) * triton.cdiv(N, config_local["BLOCK_N"]), 1, 1)
+#         a = torch.empty((M, K), dtype=torch.bfloat16, device="cuda:0")
+#         b = torch.empty((N, K), dtype=torch.bfloat16, device="cuda:0")
+#         c = torch.empty((M, N), dtype=torch.bfloat16, device="cuda:0")
+#         my_rank = 0
+#         send_index = 0
+#         heap_base_ptr = a.data_ptr()
+#         time_tensor = torch.empty((grid[0] * grid[1] * 10000), dtype=torch.int64, device="cuda:0")
+#         ret = triton_mm_kernel[grid](
+#             A_ptr=a, 
+#             A_index=a.data_ptr(), #TODO fix
+#             heap_base_0=a.data_ptr(),
+#             heap_base_1=a.data_ptr(),
+#             heap_base_2=a.data_ptr(),
+#             heap_base_3=a.data_ptr(),
+#             heap_base_4=a.data_ptr(),
+#             heap_base_5=a.data_ptr(),
+#             heap_base_6=a.data_ptr(),
+#             heap_base_7=a.data_ptr(),
+#             my_rank_base=a.data_ptr(),
+#             B_ptr=b, C_ptr=c, bias_ptr = None,
+#             M=M, N=N, K=K,
+#             my_rank = my_rank,
+#             signal_index = send_index,
+#             # heap_base_ptr = heap_base_ptr,
+#             # BLOCK_M = config_local["BLOCK_M"],
+#             # BLOCK_N = config_local["BLOCK_N"],
+#             # BLOCK_K = config_local["BLOCK_K"],
+#             time_tensor = time_tensor,
+#             HAS_BIAS=False,
+#             cache_modifier=".cg" if M * 8 == 64 else "",
+#             **config_local
+#         )
+#         log(f"[RANK-{my_rank}] {M, N, K}  regs: {ret.n_regs} , spills: {ret.n_spills}")
+# # import gc
+# # gc.set_threshold(0, 0, 0)
+# # gc.disable()
 
 

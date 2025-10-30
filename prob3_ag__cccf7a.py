@@ -1,3 +1,9 @@
+"""
+Notes: 
+Only support the shapes that showed in the bench website now. 
+Other shapes will use a tunner like https://github.com/ROCm/tritonBLAS/blob/main/tools/tile_sweep.py to generate the best config. 
+The tunner is not included in this repo now.
+"""
 import os
 # 1019_121700 gen by commit: cccf7a
 GLOBAL_BASE_PTR = None
@@ -5,11 +11,12 @@ GLOBAL_MY_RANK = None
 GLOBAL_SEND_INDEX = 0
 GLOBAL_A_ptr_index_hack = None
 GLOBAL_IS_INIT = False
+import re
 
 
 
 OPEN_PERF = True if os.environ.get("OPEN_PERF", "") else False
-SEND_CTA_PER_DEVICE = 8 ############ tmp.......... TODO:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+SEND_CTA_PER_DEVICE = 8 
 
 
 import os
@@ -111,7 +118,7 @@ CUDA_BARRIER = r"""// #define ZZ_DEBUG
 #endif
 
 #ifdef __HIPCC__
-// AMD ROCm HIP 平台
+// AMD ROCm HIP
 #include <hip/hip_fp16.h>
 #include <hip/hip_bfloat16.h>
 #include <hip/hip_runtime.h>
@@ -123,7 +130,7 @@ CUDA_BARRIER = r"""// #define ZZ_DEBUG
 #define uni(func) hip##func
 #define WARP_SYNC __builtin_amdgcn_wave_barrier();
 #elif defined(__CUDACC__)
-// NVIDIA CUDA 平台
+// NVIDIA CUDA
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #define uni(func) cuda##func
@@ -467,7 +474,7 @@ void put_kernel(float* source_tensor, int M, int K, int my_rank){
   // UNI_CHECK(hipStreamWaitEvent(0, start_event, 0));
   // // UNI_CHECK(hipEventSynchronize(end_event));
   // UNI_CHECK(hipEventDestroy(end_event));
-  // UNI_CHECK(hipStreamSynchronize(stream[my_rank])); // debug时候用一下...
+  // UNI_CHECK(hipStreamSynchronize(stream[my_rank])); // only for debug
   // for(int _ =0 ; _ < 100; _++){
   //   auto &stream = stream_list[my_rank];
   //   for(int i = 0; i < 8; i++){
@@ -476,7 +483,7 @@ void put_kernel(float* source_tensor, int M, int K, int my_rank){
 
   //   }
   // }
-  // UNI_CHECK(hipDeviceSynchronize()); // debug时候用一下...
+  // UNI_CHECK(hipDeviceSynchronize()); // only for debug
   // sleep(2);
   // std::vector<int> now(NOTI_START_OFFSET + 2000, -1 );
   // sleep(2);
@@ -1090,21 +1097,21 @@ def read_realtime():
         constraints=("=s"),
         args=[],
         dtype=tl.int64,
-        is_pure=False,  # 改为True以支持pipeliner优化
+        is_pure=False,  # change to true to support pipeliner optimization
         pack=1,
     )
     return tmp
 
 @triton.jit
 def fast_load(ptr, mask, other=0.0):
-    """使用 global_load_dword 加载数据（示例）
+    """use global_load_dword to load data (example)
     
     Args:
-        ptr: 要加载的地址（tensor）
-        mask: 加载掩码
-        other: mask为False时的默认值
+        ptr: the address to load (tensor)
+        mask: load mask
+        other: default value when mask is False
     """
-    # 方法1: 基本的 global_load_dword
+    # method 1: basic global_load_dword
     result = tl.inline_asm_elementwise(
         asm="""global_load_dword $0, $1, off sc0 sc1
                s_waitcnt vmcnt(0)
@@ -1116,22 +1123,22 @@ def fast_load(ptr, mask, other=0.0):
         pack=1,
     )
     
-    # 注意：inline_asm 不直接支持 mask，如果需要 mask，
-    # 应该在外面用 tl.where 处理：
+    # note: inline_asm does not directly support mask, if you need mask,
+    # you should use tl.where outside:
     # result = tl.where(mask, result, other)
     
     return result
 
 @triton.jit
 def fast_load_with_cache_modifier(ptr, use_cg: tl.constexpr = True):
-    """使用不同的 cache modifier 加载数据
+    """use different cache modifier to load data
     
     Args:
-        ptr: 要加载的地址
-        use_cg: 是否使用 .cg (cache global) modifier
+        ptr: the address to load
+        use_cg: whether to use .cg (cache global) modifier
     """
     if use_cg:
-        # 使用 sc0 sc1 (streaming cache)
+        # use sc0 sc1 (streaming cache)
         result = tl.inline_asm_elementwise(
             asm="""global_load_dword $0, $1, off sc0 sc1
                    s_waitcnt vmcnt(0)""",
@@ -1142,7 +1149,7 @@ def fast_load_with_cache_modifier(ptr, use_cg: tl.constexpr = True):
             pack=1,
         )
     else:
-        # 默认 cache 行为
+        # default cache behavior
         result = tl.inline_asm_elementwise(
             asm="""global_load_dword $0, $1, off
                    s_waitcnt vmcnt(0)""",
@@ -1302,8 +1309,8 @@ def compute_pid_pure(pid,
     return pid_m, pid_n
 @triton.jit
 def triton_mm_kernel(
-    A_ptr, # fake fp16 tensor, 用来获取属性的..
-    A_index: "tl.int64", # 真正的 A_index, 相对于 A_ptr 来说....
+    A_ptr, # fake fp16 tensor, to get properties..
+    A_index: "tl.int64", # actual A_index, relative to A_ptr....
     B_ptr,
     C_ptr,
     bias_ptr,
@@ -1313,7 +1320,7 @@ def triton_mm_kernel(
     N: tl.constexpr,
     K: tl.constexpr,
     my_rank: tl.constexpr,
-    heap_base_0: tl.constexpr, # 每一个 heap base 的地址, 相对于真正的 A_ptr 的偏移
+    heap_base_0: tl.constexpr, # address of each heap base, relative to actual A_ptr
     heap_base_1: tl.constexpr,
     heap_base_2: tl.constexpr,
     heap_base_3: tl.constexpr,
@@ -1455,7 +1462,7 @@ def triton_mm_kernel(
         if OPEN_PERF:
             tl.store(time_tensor + time_index, read_realtime(), cache_modifier=".cg")
             time_index += tl.num_programs(0)  
-        USE_FAST_LOAD: tl.constexpr = True ############################# TODO:
+        USE_FAST_LOAD: tl.constexpr = True 
         if not IS_LOCAL: # IS_LOCAL
             dest_rank = pid_m // (grid_m//8)
             A_ptr += my_rank_base 
@@ -1553,12 +1560,12 @@ def triton_mm_kernel(
 
 def prune_configs_v21(config, nargs):
     """
-    这个 pre_hook 为每个 config 单独调用。
-    如果 config 有效，返回 True，否则返回 False。
+    this pre_hook is called for each config separately.
+    if config is valid, return True, otherwise return False.
     """
     M, N = nargs["M"]
     
-    # 检查条件
+    # check conditions
     if M % (8 * config.kwargs["BLOCK_M"]) != 0:
         return False
     
@@ -1789,7 +1796,7 @@ def _gemm_a16w16_reduce_kernel_optimized(
     c_out_ptr,
     total_elements: tl.constexpr,  # M * N
     MAX_KSPLIT: tl.constexpr,
-    BLOCK_SIZE: tl.constexpr,  # 处理的元素数量
+    BLOCK_SIZE: tl.constexpr,  # number of elements to process
 ):
 
     pid = tl.program_id(axis=0)   
@@ -1974,6 +1981,7 @@ def launch_triton_split_k(input, weight, bias, M, K):
         # log("fast one here...")
         ret, grid, ret1, grid1, size = launch_triton_split_k.cache
         y_pp = torch.empty(size, dtype=torch.bfloat16, device=input.device) 
+        # here should add a cache for check shapes. or launch it to different functions.
         ret._run.launch(
             grid[0], grid[1], grid[2], 
             0,
