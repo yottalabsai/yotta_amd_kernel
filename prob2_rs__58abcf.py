@@ -1,8 +1,8 @@
 """
 Notes: 
-Only support the shapes that showed in the bench website now. 
-Other shapes will use a tunner like https://github.com/ROCm/tritonBLAS/blob/main/tools/tile_sweep.py to generate the best config. 
-The tunner is not included in this repo now.
+1.  Only support the shapes that showed in the bench website now. 
+Other shapes can use a tunner like https://github.com/ROCm/tritonBLAS/blob/main/tools/tile_sweep.py to generate the best config. The tunner is not included in this repo now.
+2.  Triton code doesn't perform well with some irregular matrix multiplications; we'll be releasing a HIP version later. Stay tuned. 
 """
 import os
 # 1019_121828 gen by commit: 58abcf
