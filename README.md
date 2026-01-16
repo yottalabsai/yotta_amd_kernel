@@ -44,4 +44,4 @@ The geometric mean performance metric ensures solutions perform well across dive
 
 ## Acknowledgments
 
-We thank **AMD** for organizing the GPU Optimization Challenge 2025 and providing access to MI300X hardware. We also thank **GPUMode** and all organizers for making this competition possible.
+We thank **AMD** for organizing the GPU Optimization Challenge 2025 and thanks Innomatrix.ai for providing access to MI300X hardware. We also thank **GPUMode** and all organizers for making this competition possible.
