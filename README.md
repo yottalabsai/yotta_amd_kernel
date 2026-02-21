@@ -1,6 +1,6 @@
 # AMD Developer Challenge 2025: Distributed Inference Kernels
 
-This repository contains our optimized implementations for the [AMD Developer Challenge 2025: Distributed Inference Kernels](https://amdchallenge2025.datamonsters.com). We developed high-performance implementations of three critical distributed GPU kernels for single-node 8× AMD MI300X configurations.
+This repository contains [Yotta Labs](https://www.yottalabs.ai)' optimized implementations for the [AMD Developer Challenge 2025: Distributed Inference Kernels](https://amdchallenge2025.datamonsters.com). We developed high-performance implementations of three critical distributed GPU kernels for single-node 8× AMD MI300X configurations.
 
 ## Overview
 
@@ -41,7 +41,8 @@ The geometric mean performance metric ensures solutions perform well across dive
 2. [AMD Instinct MI300X Accelerator](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html)
 3. [ROCm Documentation](https://rocm.docs.amd.com/)
 4. [Reference Kernels Repository](https://github.com/gpu-mode/reference-kernels/tree/main/problems/amd_distributed)
+5. [Yotta Labs Blog: Optimizing Distributed Inference Kernels for AMD Developer Challenge 2025](https://www.yottalabs.ai/post/optimizing-distributed-inference-kernels-for-amd-developer-challenge-2025)
 
 ## Acknowledgments
 
-We thank **AMD** for organizing the GPU Optimization Challenge 2025 and thanks Innomatrix.ai for providing access to MI300X hardware. We also thank **GPUMode** and all organizers for making this competition possible.
+We thank **AMD** for organizing the GPU Optimization Challenge 2025 and thanks **InnoMatrix.ai** for providing access to MI300X hardware. We also thank **GPUMode** and all organizers for making this competition possible.

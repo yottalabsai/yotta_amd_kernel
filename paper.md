@@ -14,9 +14,7 @@ This paper presents our optimization work for the AMD Developer Challenge 2025: 
 
 ## 1. Introduction
 
-This paper presents our optimization work for the AMD Developer Challenge 2025: Distributed Inference Kernels, where we develop high-performance implementations of three critical distributed GPU kernels for single-node 8× AMD MI300X configurations. The three kernels—All-to-All communication for Mixture-of-Experts (MoE), GEMM-ReduceScatter, and AllGather-GEMM—are fundamental building blocks for modern large language model (LLM) training and inference.
-
-MoE architectures like Mixtral and GPT-4 rely on efficient All-to-All communication to route tokens dynamically across expert networks, enabling models to scale capacity without proportional increases in computation. GEMM-ReduceScatter and AllGather-GEMM are essential for tensor parallelism, the primary technique for training and deploying models that exceed single-GPU memory capacity, as pioneered by systems like Megatron-LM and DeepSpeed. As LLMs continue to grow in size and complexity, optimizing these communication-computation patterns becomes increasingly critical for making AI training and inference practical and cost-effective.
+Modern large language models (LLMs) increasingly rely on two architectural patterns that demand efficient distributed communication: Mixture-of-Experts (MoE) routing and tensor parallelism. MoE architectures like Mixtral and GPT-4 use All-to-All communication to dynamically route tokens across expert networks, enabling models to scale capacity without proportional increases in computation. Tensor parallelism—the primary technique for training and deploying models that exceed single-GPU memory capacity, as pioneered by systems like Megatron-LM and DeepSpeed—depends on GEMM-ReduceScatter and AllGather-GEMM as foundational primitives. As LLMs grow in size and complexity, optimizing these communication-computation patterns becomes increasingly critical for making AI training and inference practical and cost-effective.
 
 Our key contributions include:
 
@@ -428,15 +426,15 @@ Our optimized implementations demonstrate significant performance improvements a
 
 ## 5. Conclusions
 
-This paper presented our optimization work for the AMD Developer Challenge 2025, where we developed high-performance implementations of three critical distributed GPU kernels for single-node 8× AMD MI300X configurations. Our key innovations include fine-grained per-token synchronization for streaming communication, kernel fusion techniques that eliminate intermediate memory operations, and hardware-aware optimizations leveraging MI300X's 8 XCD architecture.
+Developing optimized distributed kernels for AMD MI300X revealed that the most significant gains come from two orthogonal directions: reducing synchronization granularity and aligning computation structure with hardware topology. Fine-grained per-token flags in the All-to-All kernel demonstrate that streaming communication—where receivers process tokens as they arrive rather than waiting for bulk transfers—can fundamentally change the latency profile of collective operations. For fused GEMM kernels, the MI300X's 8 XCD architecture creates a natural partition that, when respected by thread block remapping, enables all Infinity Fabric links to operate simultaneously.
 
-Through All-to-All, GEMM-ReduceScatter, and AllGather-GEMM optimizations, we demonstrated significant performance improvements via communication-computation overlap, reduced memory allocations, and ROCm-specific tuning. Our work provides practical insights for developers working with distributed kernels on AMD GPUs and contributes to the growing ecosystem of high-performance AI computing on AMD hardware.
+Several optimizations proved broadly applicable across all three kernels regardless of collective type: persistent buffer reuse with in-kernel zeroing, IPC-based symmetric heaps for zero-copy peer access, and custom launchers that eliminate per-invocation host overhead. Together, these techniques provide a practical template for building high-performance distributed kernels on AMD GPUs, and we hope they serve as a useful reference for the growing ecosystem of ROCm-native kernel development.
 
 ---
 
 ## Acknowledgments
 
-We thank **AMD** for organizing the GPU Optimization Challenge 2025 and **InnoMatrix.ai** providing access to AMD MI300X hardware, which enabled us to explore and optimize distributed kernels on cutting-edge AMD accelerators. We also thank **GPUMode** and all organizers for making this competition possible.
+We thank **AMD** for organizing the GPU Optimization Challenge 2025 and **InnoMatrix.ai** for providing access to AMD MI300X hardware, which enabled us to explore and optimize distributed kernels on cutting-edge AMD accelerators. We also thank **GPUMode** and all organizers for making this competition possible.
 
 We extend our gratitude to the organizers and community members whose guidance and support were essential to our success. For questions or suggestions, please reach out to the project authors.
 
